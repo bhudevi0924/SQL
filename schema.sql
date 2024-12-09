@@ -52,3 +52,63 @@ FULL OUTER JOIN Departments d ON e.departmentid = d.departmentid;
 SELECT e.FirstName, e.LastName, d.DepartmentName
 FROM Employees e
 CROSS JOIN Departments d;
+
+/* create stored procedures*/
+CREATE PROCEDURE AddEmployee
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @DepartmentID INT
+AS
+BEGIN
+    INSERT INTO Employees (firstname, lastname, departmentid)
+    VALUES (@FirstName, @LastName, @DepartmentID);
+
+    PRINT 'Employee added successfully!';
+END;
+
+/* execute stored procedure*/
+EXEC AddEmployee @FirstName = 'Bhudevi', @LastName = 'Devi', @DepartmentID = 4;
+
+/*create function*/
+CREATE FUNCTION GetEmployeeFullName(@EmpID INT)
+RETURNS NVARCHAR(100)
+AS
+BEGIN
+    DECLARE @FullName NVARCHAR(100);
+
+    SELECT @FullName = firstname + ' ' + lastname
+    FROM Employees
+    WHERE empid = @EmpID;
+
+    RETURN @FullName;
+END;
+
+/*execute function*/
+SELECT dbo.GetEmployeeFullName(1) AS FullName;
+
+/*create a table to log department changes*/
+CREATE TABLE DepartmentChangeLog (
+    logID INT PRIMARY KEY IDENTITY(1,1),
+    empID INT NOT NULL,
+    oldDepartmentID INT,
+    newDepartmentID INT,
+    changeDate DATETIME DEFAULT GETDATE()
+);
+
+/*create trigger*/
+CREATE TRIGGER LogDepartmentChange
+ON Employees
+AFTER UPDATE
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM inserted WHERE DepartmentID <> (SELECT DepartmentID FROM deleted))
+    BEGIN
+        INSERT INTO DepartmentChangeLog (EmpID, OldDepartmentID, NewDepartmentID)
+        SELECT d.EmpID, d.DepartmentID AS OldDepartmentID, i.DepartmentID AS NewDepartmentID
+        FROM deleted d
+        INNER JOIN inserted i ON d.EmpID = i.EmpID;
+    END;
+END;
+
+/*record will be inserted into department  logs table when ever department is updated in employees table*/
+update employees set departmentid=4 where empid=1
